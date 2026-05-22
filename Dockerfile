@@ -1,51 +1,45 @@
-FROM php:8.2-fpm
+FROM php:8.2-apache
 
-# Instalar dependencias del sistema
-RUN apt-get update && apt-get install -y \
+# Habilitar mod_rewrite para Laravel
+RUN a2enmod rewrite
+
+# Instalar solo lo esencial
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
-    unzip \
-    libpq-dev \
-    libzip-dev \
-    libonig-dev \
-    libxml2-dev \
     zip \
-    nodejs \
-    npm \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# Instalar extensiones PHP (sin ctype y json que ya vienen)
-RUN docker-php-ext-install -j$(nproc) \
-    pdo \
-    pdo_mysql \
-    zip \
-    bcmath \
-    mbstring \
-    tokenizer
-
-# Habilitar extensiones que vienen por defecto
-RUN docker-php-ext-enable \
-    pdo \
-    pdo_mysql \
-    zip \
-    bcmath \
-    mbstring \
-    tokenizer
+# Instalar extensiones PHP DE FORMA SEGURA
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libzip-dev \
+    && docker-php-ext-configure zip \
+    && docker-php-ext-install -j$(nproc) zip \
+    && docker-php-ext-install -j$(nproc) pdo pdo_mysql \
+    && rm -rf /var/lib/apt/lists/*
 
 # Instalar Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-# Crear usuario laravel
-RUN groupadd -g 1000 laravel && \
-    useradd -G www-data,root -u 1000 -d /app laravel
+# Configurar directorio de trabajo
+WORKDIR /var/www/html
 
-WORKDIR /app
+# Copiar archivos de proyecto
+COPY --chown=www-data:www-data . .
 
-# Cambiar permisos
-RUN chown -R laravel:laravel /app
+# Permisos correctos
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 755 /var/www/html/storage \
+    && chmod -R 755 /var/www/html/bootstrap/cache
 
-USER laravel
+# Configurar Apache
+RUN echo '<Directory /var/www/html/public>' > /etc/apache2/sites-available/000-default.conf && \
+    echo '    AllowOverride All' >> /etc/apache2/sites-available/000-default.conf && \
+    echo '    Require all granted' >> /etc/apache2/sites-available/000-default.conf && \
+    echo '</Directory>' >> /etc/apache2/sites-available/000-default.conf && \
+    echo 'DocumentRoot /var/www/html/public' >> /etc/apache2/sites-available/000-default.conf
 
-EXPOSE 8000
+EXPOSE 80
 
-CMD ["php", "-S", "0.0.0.0:8000", "-t", "public"]
+CMD ["apache2-foreground"]
