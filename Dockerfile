@@ -7,18 +7,28 @@ RUN apt-get update && apt-get install -y \
     unzip \
     libpq-dev \
     libzip-dev \
+    libonig-dev \
+    libxml2-dev \
     zip \
+    nodejs \
     npm \
     && rm -rf /var/lib/apt/lists/*
 
-# Instalar extensiones PHP
-RUN docker-php-ext-install \
+# Instalar extensiones PHP (sin ctype y json que ya vienen)
+RUN docker-php-ext-install -j$(nproc) \
     pdo \
     pdo_mysql \
     zip \
     bcmath \
-    ctype \
-    json \
+    mbstring \
+    tokenizer
+
+# Habilitar extensiones que vienen por defecto
+RUN docker-php-ext-enable \
+    pdo \
+    pdo_mysql \
+    zip \
+    bcmath \
     mbstring \
     tokenizer
 
@@ -31,17 +41,11 @@ RUN groupadd -g 1000 laravel && \
 
 WORKDIR /app
 
-# Copiar archivos del proyecto
-COPY --chown=laravel:laravel . /app
-
-# Instalar dependencias
-RUN composer install --no-interaction --no-dev --prefer-dist --optimize-autoloader || true
-
 # Cambiar permisos
-RUN chown -R laravel:laravel storage bootstrap/cache
+RUN chown -R laravel:laravel /app
 
 USER laravel
 
 EXPOSE 8000
 
-CMD ["php-fpm"]
+CMD ["php", "-S", "0.0.0.0:8000", "-t", "public"]
