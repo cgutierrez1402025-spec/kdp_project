@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: kdp-app
+    working_dir: /app
+    volumes:
+      - ./laravel:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_DATABASE=kdp_author_manager
+      - DB_USERNAME=kdp_user
+      - DB_PASSWORD=kdp_password
+    networks:
+      - kdp-network
+
+  db:
+    image: mysql:8.0
+    container_name: kdp-db
+    environment:
+      MYSQL_DATABASE: kdp_author_manager
+      MYSQL_USER: kdp_user
+      MYSQL_PASSWORD: kdp_password
+      MYSQL_ROOT_PASSWORD: root_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - kdp-network
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: kdp-pma
+    environment:
+      PMA_HOST: db
+      PMA_USER: root
+      PMA_PASSWORD: root_password
+    ports:
+      - "8080:80"
+    depends_on:
+      - db
+    networks:
+      - kdp-network
+
+volumes:
+  mysql_data:
+
+networks:
+  kdp-network:
+    driver: bridge
